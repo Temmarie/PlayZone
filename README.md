@@ -34,7 +34,7 @@ A modern gaming platform built with Next.js featuring classic games, user profil
 1. **Clone the repository**
 
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Temmarie/PlayZone.git
    cd gamez
    ```
 
