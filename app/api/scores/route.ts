@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       time,
       timestamp: new Date().toISOString(),
     }
-
+ 
     scores.push(newScore)
 
     return NextResponse.json({ success: true, score: newScore })

@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { Trophy, Medal, Award, Home, Crown } from "lucide-react";
 import Link from "next/link";
+import supabase from "@/lib/supabase";
+
+// Adjust if your Supabase client path is different
 
 type LeaderboardEntry = {
   id: string;
@@ -22,81 +25,46 @@ export default function Leaderboard() {
   >("totalScore");
 
   useEffect(() => {
-    // Generate mock leaderboard data
-    const mockData: LeaderboardEntry[] = [
-      {
-        id: "1",
-        username: "GameMaster",
-        avatar: "👑",
-        totalScore: 2450,
-        gamesPlayed: 89,
-        bestStreak: 12,
-        favoriteGame: "Tic Tac Toe",
-      },
-      {
-        id: "2",
-        username: "PuzzleQueen",
-        avatar: "🧩",
-        totalScore: 2180,
-        gamesPlayed: 76,
-        bestStreak: 8,
-        favoriteGame: "Picture Matching",
-      },
-      {
-        id: "3",
-        username: "RockPaperPro",
-        avatar: "✂️",
-        totalScore: 1950,
-        gamesPlayed: 65,
-        bestStreak: 15,
-        favoriteGame: "Rock Paper Scissors",
-      },
-      {
-        id: "4",
-        username: "StrategyKing",
-        avatar: "♟️",
-        totalScore: 1820,
-        gamesPlayed: 58,
-        bestStreak: 7,
-        favoriteGame: "Tic Tac Toe",
-      },
-      {
-        id: "5",
-        username: "QuickThink",
-        avatar: "⚡",
-        totalScore: 1650,
-        gamesPlayed: 52,
-        bestStreak: 9,
-        favoriteGame: "Picture Matching",
-      },
-    ];
+    const fetchLeaderboard = async () => {
+      const { data, error } = await supabase
+        .from("leaderboard")
+        .select("*")
+        .order(sortBy, { ascending: false });
 
-    // Add current user to leaderboard
-    const userProfile = JSON.parse(
-      localStorage.getItem("userProfile") ||
-        '{"username": "GamePlayer", "avatar": "🎮"}'
-    );
-    const userStats = JSON.parse(
-      localStorage.getItem("gameStats") ||
-        '{"gamesPlayed": 0, "totalScore": 0, "bestStreak": 0}'
-    );
+      if (error) {
+        console.error("Error fetching leaderboard:", error.message);
+        return;
+      }
 
-    const currentUserEntry: LeaderboardEntry = {
-      id: "current",
-      username: userProfile.username,
-      avatar: userProfile.avatar,
-      totalScore: userStats.totalScore,
-      gamesPlayed: userStats.gamesPlayed,
-      bestStreak: userStats.bestStreak,
-      favoriteGame: userProfile.favoriteGame || "Tic Tac Toe",
+      const userProfile = JSON.parse(
+        localStorage.getItem("userProfile") ||
+          '{"username": "GamePlayer", "avatar": "🎮", "favoriteGame": "Tic Tac Toe"}'
+      );
+
+      const userStats = JSON.parse(
+        localStorage.getItem("gameStats") ||
+          '{"gamesPlayed": 0, "totalScore": 0, "bestStreak": 0}'
+      );
+
+      const currentUserEntry: LeaderboardEntry = {
+        id: "current",
+        username: userProfile.username,
+        avatar: userProfile.avatar,
+        totalScore: userStats.totalScore,
+        gamesPlayed: userStats.gamesPlayed,
+        bestStreak: userStats.bestStreak,
+        favoriteGame: userProfile.favoriteGame,
+      };
+
+      setCurrentUser(currentUserEntry);
+
+      const combined = [...(data || []), currentUserEntry];
+      const sorted = combined.sort((a, b) => b[sortBy] - a[sortBy]);
+
+      setLeaderboard(sorted);
     };
 
-    setCurrentUser(currentUserEntry);
-
-    // Combine and sort leaderboard
-    const combinedData = [...mockData, currentUserEntry];
-    const sortedData = combinedData.sort((a, b) => b[sortBy] - a[sortBy]);
-    setLeaderboard(sortedData);
+    fetchLeaderboard();
   }, [sortBy]);
 
   const getRankIcon = (rank: number) => {
@@ -147,43 +115,30 @@ export default function Leaderboard() {
         </Link>
       </div>
 
-      {/* Sort Controls */}
+      {/* Sort Buttons */}
       <div className="mb-6">
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setSortBy("totalScore")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              sortBy === "totalScore"
-                ? "bg-violet-600 text-white"
-                : "bg-violet-400 text-gray-300 hover:bg-violet-600"
-            }`}
-          >
-            Total Score
-          </button>
-          <button
-            onClick={() => setSortBy("gamesPlayed")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              sortBy === "gamesPlayed"
-                ? "bg-violet-600 text-white"
-                : "bg-violet-400 text-gray-300 hover:bg-violet-600"
-            }`}
-          >
-            Games Played
-          </button>
-          <button
-            onClick={() => setSortBy("bestStreak")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              sortBy === "bestStreak"
-                ? "bg-violet-600 text-white"
-                : "bg-violet-400 text-gray-300 hover:bg-violet-600"
-            }`}
-          >
-            Best Streak
-          </button>
+          {["totalScore", "gamesPlayed", "bestStreak"].map((key) => (
+            <button
+              key={key}
+              onClick={() => setSortBy(key as any)}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                sortBy === key
+                  ? "bg-violet-600 text-white"
+                  : "bg-violet-400 text-gray-300 hover:bg-violet-600"
+              }`}
+            >
+              {key === "totalScore"
+                ? "Total Score"
+                : key === "gamesPlayed"
+                ? "Games Played"
+                : "Best Streak"}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Leaderboard */}
+      {/* Leaderboard Entries */}
       <div className="bg-gray-800 rounded-xl border border-violet-400 overflow-hidden">
         <div className="p-6 border-b border-violet-400">
           <h2 className="text-xl font-bold text-white flex items-center">
@@ -199,7 +154,7 @@ export default function Leaderboard() {
 
             return (
               <div
-                key={entry.id}
+                key={entry.id + index}
                 className={`p-6 flex items-center justify-between transition-colors ${
                   isUser
                     ? "bg-purple-900/30 border-l-4 border-l-purple-500"
@@ -207,17 +162,12 @@ export default function Leaderboard() {
                 } ${getRankColor(rank)}`}
               >
                 <div className="flex items-center space-x-4">
-                  {/* Rank */}
                   <div className="flex items-center justify-center w-12">
                     {getRankIcon(rank)}
                   </div>
-
-                  {/* Avatar */}
                   <div className="w-12 h-12 bg-violet-400 rounded-full flex items-center justify-center text-2xl">
                     {entry.avatar}
                   </div>
-
-                  {/* User Info */}
                   <div>
                     <div className="flex items-center">
                       <h3 className="font-semibold text-white">
@@ -235,7 +185,6 @@ export default function Leaderboard() {
                   </div>
                 </div>
 
-                {/* Stats */}
                 <div className="flex items-center space-x-8 text-right">
                   <div>
                     <div className="text-lg font-bold text-white">
@@ -262,7 +211,7 @@ export default function Leaderboard() {
         </div>
       </div>
 
-      {/* Current User Summary */}
+      {/* Current User Stats */}
       {currentUser && (
         <div className="mt-8 bg-gray-800 rounded-xl p-6 border border-violet-400">
           <h3 className="text-lg font-bold text-white mb-4">
