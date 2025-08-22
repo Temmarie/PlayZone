@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Edit3, Save, X, Home } from "lucide-react";
+import { Edit3, Save, X, Home, Check } from "lucide-react";
 import Link from "next/link";
 import supabase from "@/lib/supabase";
 import { ensureUserId } from "@/lib/userId";
@@ -32,6 +32,15 @@ export default function Profile() {
     totalScore: 0,
     bestStreak: 0,
   });
+
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [usernameAvailable, setUsernameAvailable] = useState(false);
+  const [checkingUsername, setCheckingUsername] = useState(false);
 
   const avatarOptions = [
     "🎮",
@@ -65,7 +74,6 @@ export default function Profile() {
       setProfile(parsedProfile);
       setEditedProfile(parsedProfile);
     } else {
-      // Save default profile if none exists
       localStorage.setItem("userProfile", JSON.stringify(defaultProfile));
     }
 
@@ -75,7 +83,45 @@ export default function Profile() {
     }
   }, []);
 
+  // 🔍 Check username availability when typing
+  useEffect(() => {
+    if (!isEditing) return;
+    const check = setTimeout(async () => {
+      if (
+        editedProfile.username &&
+        editedProfile.username !== profile.username
+      ) {
+        setCheckingUsername(true);
+        const { data, error } = await supabase
+          .from("leaderboard")
+          .select("id")
+          .eq("username", editedProfile.username)
+          .maybeSingle();
+
+        if (error) {
+          console.error("❌ Error checking username:", error.message);
+        }
+
+        if (data && data.id !== ensureUserId()) {
+          setUsernameError("❌ Username already taken!");
+          setUsernameAvailable(false);
+        } else {
+          setUsernameError(null);
+          setUsernameAvailable(true);
+        }
+        setCheckingUsername(false);
+      } else {
+        setUsernameError(null);
+        setUsernameAvailable(false);
+      }
+    }, 400); // debounce
+
+    return () => clearTimeout(check);
+  }, [editedProfile.username, isEditing, profile.username]);
+
   const handleSave = async () => {
+    if (usernameError) return;
+
     if (JSON.stringify(profile) === JSON.stringify(editedProfile)) {
       setIsEditing(false);
       return;
@@ -85,7 +131,7 @@ export default function Profile() {
     localStorage.setItem("userProfile", JSON.stringify(editedProfile));
     setIsEditing(false);
 
-    const userId = ensureUserId(); // ✅ unified
+    const userId = ensureUserId();
     const gameStats = JSON.parse(localStorage.getItem("gameStats") || "{}");
 
     const { error } = await supabase.from("leaderboard").upsert(
@@ -102,24 +148,18 @@ export default function Profile() {
     );
 
     if (error) {
-      if (error.code === "23505") {
-        setMessage({ type: "error", text: "❌ Username already taken!" });
-      } else {
-        console.error("❌ Error updating Supabase:", error.message);
-      }
+      console.error("❌ Error updating Supabase:", error.message);
+      // setMessage({ type: "error", text: "❌ Failed to update profile." });
     } else {
-      setMessage({ type: "success", text: "✅ Profile saved!" });
+      // setMessage({ type: "success", text: "✅ Profile saved!" });
     }
   };
-
-  const [message, setMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
 
   const handleCancel = () => {
     setEditedProfile(profile);
     setIsEditing(false);
+    setUsernameError(null);
+    setUsernameAvailable(false);
   };
 
   const handleInputChange = (field: keyof UserProfile, value: string) => {
@@ -143,7 +183,6 @@ export default function Profile() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Profile Information */}
         {message && (
           <div
             className={`mb-4 p-3 rounded-lg text-white text-sm ${
@@ -172,7 +211,12 @@ export default function Profile() {
                 <div className="flex space-x-2">
                   <button
                     onClick={handleSave}
-                    className="btn-primary flex items-center text-sm"
+                    disabled={!!usernameError || checkingUsername}
+                    className={`btn-primary flex items-center text-sm ${
+                      usernameError || checkingUsername
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
+                    }`}
                   >
                     <Save className="w-4 h-4 mr-2" />
                     Save
@@ -188,7 +232,7 @@ export default function Profile() {
               )}
             </div>
 
-            {/* Avatar Selection */}
+            {/* Avatar */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-300 mb-3">
                 Avatar
@@ -216,14 +260,13 @@ export default function Profile() {
               )}
             </div>
 
-            {/* Form Fields */}
-            <div className="space-y-4">
-              {/* Username */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Username
-                </label>
-                {isEditing ? (
+            {/* Username */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Username
+              </label>
+              {isEditing ? (
+                <>
                   <input
                     type="text"
                     value={editedProfile.username}
@@ -232,132 +275,162 @@ export default function Profile() {
                     }
                     className="w-full px-3 py-2 bg-violet-400 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
                   />
-                ) : (
-                  <p className="text-white">{profile.username}</p>
-                )}
-              </div>
+                  {usernameError && (
+                    <p className="text-red-400 text-xs mt-1">{usernameError}</p>
+                  )}
+                  {usernameAvailable && !usernameError && (
+                    <p className="text-green-400 text-xs mt-1 flex items-center">
+                      <Check className="w-4 h-4 mr-1" />
+                      Username available
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-white">{profile.username}</p>
+              )}
+            </div>
 
-              {/* Email */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Email
-                </label>
-                {isEditing ? (
-                  <input
-                    type="email"
-                    value={editedProfile.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    className="w-full px-3 py-2 bg-violet-400 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
-                  />
-                ) : (
-                  <p className="text-white">{profile.email}</p>
-                )}
-              </div>
+            {/* Email */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Email
+              </label>
+              {isEditing ? (
+                <input
+                  type="email"
+                  value={editedProfile.email}
+                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  className="w-full px-3 py-2 bg-violet-400 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                />
+              ) : (
+                <p className="text-white">{profile.email}</p>
+              )}
+            </div>
 
-              {/* Favorite Game */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Favorite Game
-                </label>
-                {isEditing ? (
-                  <select
-                    value={editedProfile.favoriteGame}
-                    onChange={(e) =>
-                      handleInputChange("favoriteGame", e.target.value)
-                    }
-                    className="w-full px-3 py-2 bg-violet-400 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
-                  >
-                    {gameOptions.map((game) => (
-                      <option key={game} value={game}>
-                        {game}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <p className="text-white">{profile.favoriteGame}</p>
-                )}
-              </div>
+            {/* Favorite Game */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Favorite Game
+              </label>
+              {isEditing ? (
+                <select
+                  value={editedProfile.favoriteGame}
+                  onChange={(e) =>
+                    handleInputChange("favoriteGame", e.target.value)
+                  }
+                  className="w-full px-3 py-2 bg-violet-400 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                >
+                  {gameOptions.map((game) => (
+                    <option key={game} value={game}>
+                      {game}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-white">{profile.favoriteGame}</p>
+              )}
+            </div>
 
-              {/* Join Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Member Since
-                </label>
-                <p className="text-white">{profile.joinDate}</p>
-              </div>
+            {/* Join Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Member Since
+              </label>
+              <p className="text-white">{profile.joinDate}</p>
             </div>
           </div>
         </div>
 
-        {/* Stats Sidebar */}
-        <div className="space-y-6">
-          {/* Gaming Stats */}
-          <div className="bg-gray-800 rounded-xl p-6 border border-violet-400">
-            <h3 className="text-xl font-bold text-white mb-4">Gaming Stats</h3>
-            <div className="space-y-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-violet-400">
-                  {stats.gamesPlayed}
-                </div>
-                <div className="text-sm text-gray-400">Games Played</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-400">
-                  {stats.totalScore}
-                </div>
-                <div className="text-sm text-gray-400">Total Score</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-yellow-400">
-                  {stats.bestStreak}
-                </div>
-                <div className="text-sm text-gray-400">Best Streak</div>
-              </div>
-            </div>
-          </div>
+        {/* Sidebar */}
+        <Sidebar stats={stats} />
+      </div>
+    </div>
+  );
+}
 
-          {/* Achievements */}
-          <div className="bg-gray-800 rounded-xl p-6 border border-violet-400">
-            <h3 className="text-lg font-bold text-white mb-4">Achievements</h3>
-            <div className="space-y-3">
-              <Achievement
-                unlocked={stats.gamesPlayed >= 1}
-                icon="🎮"
-                title="First Game"
-                description="Play your first game"
-              />
-              <Achievement
-                unlocked={stats.gamesPlayed >= 10}
-                icon="🏆"
-                title="Game Enthusiast"
-                description="Play 10 games"
-              />
-              <Achievement
-                unlocked={stats.bestStreak >= 5}
-                icon="🔥"
-                title="Hot Streak"
-                description="Win 5 games in a row"
-              />
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="bg-gray-800 rounded-xl p-6 border border-violet-400">
-            <h3 className="text-lg font-bold text-white mb-4">Quick Actions</h3>
-            <div className="space-y-2">
-              <Link
-                href="/leaderboard"
-                className="block w-full btn-secondary text-center"
-              >
-                View Leaderboard
-              </Link>
-              <Link href="/" className="block w-full btn-primary text-center">
-                Play Games
-              </Link>
-            </div>
-          </div>
+function Sidebar({ stats }: { stats: any }) {
+  return (
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="bg-gray-800 rounded-xl p-6 border border-violet-400">
+        <h3 className="text-xl font-bold text-white mb-4">Gaming Stats</h3>
+        <div className="space-y-4">
+          <StatBox
+            value={stats.gamesPlayed}
+            label="Games Played"
+            color="violet"
+          />
+          <StatBox value={stats.totalScore} label="Total Score" color="green" />
+          <StatBox
+            value={stats.bestStreak}
+            label="Best Streak"
+            color="yellow"
+          />
         </div>
       </div>
+
+      {/* Achievements */}
+      <div className="bg-gray-800 rounded-xl p-6 border border-violet-400">
+        <h3 className="text-lg font-bold text-white mb-4">Achievements</h3>
+        <div className="space-y-3">
+          <Achievement
+            unlocked={stats.gamesPlayed >= 1}
+            icon="🎮"
+            title="First Game"
+            description="Play your first game"
+          />
+          <Achievement
+            unlocked={stats.gamesPlayed >= 10}
+            icon="🏆"
+            title="Game Enthusiast"
+            description="Play 10 games"
+          />
+          <Achievement
+            unlocked={stats.bestStreak >= 5}
+            icon="🔥"
+            title="Hot Streak"
+            description="Win 5 games in a row"
+          />
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-gray-800 rounded-xl p-6 border border-violet-400">
+        <h3 className="text-lg font-bold text-white mb-4">Quick Actions</h3>
+        <div className="space-y-2">
+          <Link
+            href="/leaderboard"
+            className="block w-full btn-secondary text-center"
+          >
+            View Leaderboard
+          </Link>
+          <Link href="/" className="block w-full btn-primary text-center">
+            Play Games
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatBox({
+  value,
+  label,
+  color,
+}: {
+  value: number;
+  label: string;
+  color: "violet" | "green" | "yellow";
+}) {
+  const colorMap = {
+    violet: "text-violet-400",
+    green: "text-green-400",
+    yellow: "text-yellow-400",
+  };
+  return (
+    <div className="text-center">
+      <div className={`text-3xl font-bold ${colorMap[color]}`}>{value}</div>
+      <div className="text-sm text-gray-400">{label}</div>
     </div>
   );
 }
