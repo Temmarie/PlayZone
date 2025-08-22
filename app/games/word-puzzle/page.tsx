@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
 import { RotateCcw, Home, Eye, EyeOff } from "lucide-react";

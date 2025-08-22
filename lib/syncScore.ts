@@ -1,9 +1,16 @@
 // lib/syncScore.ts
+"use client";
+
 import supabase from "@/lib/supabase";
 import { ensureUserId } from "@/lib/userId";
 
 export async function uploadScoreToSupabase() {
-  const userId = ensureUserId(); // ✅ unified
+  if (typeof window === "undefined") {
+    // ✅ Never run during server-side rendering or prerender
+    return;
+  }
+
+  const userId = ensureUserId();
 
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
   const gameStats = JSON.parse(localStorage.getItem("gameStats") || "{}");
