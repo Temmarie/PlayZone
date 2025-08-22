@@ -86,7 +86,6 @@ npm start
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/) + CSS Animations
 - **UI Components**: [Radix UI](https://www.radix-ui.com/) primitives
 - **Icons**: [Lucide React](https://lucide.dev/)
-- **Fonts**: Bricolage Grotesque
 - **Validation**: Zod
 - **Forms**: React Hook Form
 
