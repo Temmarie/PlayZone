@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { RotateCcw, Home } from "lucide-react";
 import Link from "next/link";
 import { useSound } from "../../hooks/useSound";
+import { uploadScoreToSupabase } from "@/lib/syncScore";
 
 type Choice = "rock" | "paper" | "scissors";
 type Result = "win" | "lose" | "draw";
@@ -108,6 +109,7 @@ export default function RockPaperScissors() {
         stats.bestStreak = streak + 1;
       }
       localStorage.setItem("gameStats", JSON.stringify(stats));
+      uploadScoreToSupabase();
 
       setIsPlaying(false);
     }, 1000);

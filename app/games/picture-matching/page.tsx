@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { RotateCcw, Home, Clock } from "lucide-react";
 import Link from "next/link";
 import { useSound } from "../../hooks/useSound";
+import { uploadScoreToSupabase } from "@/lib/syncScore";
 
 type Card = {
   id: number;
@@ -110,6 +111,9 @@ export default function PictureMatching() {
       stats.gamesPlayed += 1;
       stats.totalScore += Math.max(100 - moves, 10); // Score based on efficiency
       localStorage.setItem("gameStats", JSON.stringify(stats));
+
+      // sync with Supabase
+      uploadScoreToSupabase();
     }
   }, [
     matchedPairs,

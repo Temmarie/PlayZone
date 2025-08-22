@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Play, Pause, RotateCcw, Home } from "lucide-react";
 import Link from "next/link";
 import { useSound } from "../../hooks/useSound";
+import { uploadScoreToSupabase } from "@/lib/syncScore";
 
 type TetrominoType = "I" | "O" | "T" | "S" | "Z" | "J" | "L";
 type Cell = { filled: boolean; color: string };
@@ -318,6 +319,7 @@ export default function Tetris() {
       stats.gamesPlayed += 1;
       stats.totalScore += score;
       localStorage.setItem("gameStats", JSON.stringify(stats));
+      uploadScoreToSupabase();
     }
   }, [gameOver, score, highScore]);
 

@@ -37,7 +37,7 @@ const games = [
     description: "Test your memory by matching pairs of hidden pictures.",
     icon: Target,
     href: "/games/picture-matching",
-    color: "from-purple-500 to-pink-500",
+    color: "from-violet-500 to-pink-500",
   },
   {
     id: "snake",
@@ -55,7 +55,7 @@ const games = [
       "Arrange falling blocks to clear lines and achieve high scores.",
     icon: Grid3X3,
     href: "/games/tetris",
-    color: "from-indigo-500 to-purple-500",
+    color: "from-indigo-500 to-violet-500",
   },
   {
     id: "word-puzzle",
@@ -113,8 +113,8 @@ export default function Dashboard() {
 
         <div className="bg-gray-800 rounded-xl p-6 border border-violet-400">
           <div className="flex items-center">
-            <div className="p-3 bg-purple-500/20 rounded-lg">
-              <Trophy className="w-6 h-6 text-purple-400" />
+            <div className="p-3 bg-violet-500/20 rounded-lg">
+              <Trophy className="w-6 h-6 text-violet-400" />
             </div>
             <div className="ml-4">
               <p className="text-sm text-gray-400">Total Score</p>
@@ -156,7 +156,7 @@ export default function Dashboard() {
                   {game.name}
                 </h3>
                 <p className="text-gray-400 text-sm mb-4">{game.description}</p>
-                <div className="flex items-center text-purple-400 text-sm font-medium">
+                <div className="flex items-center text-violet-400 text-sm font-medium">
                   Play Now
                   <svg
                     className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform duration-200"
@@ -181,9 +181,9 @@ export default function Dashboard() {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Link href="/profile">
-          <div className="bg-gray-800 rounded-xl p-6 border border-violet-400 hover:border-purple-500 transition-colors cursor-pointer">
+          <div className="bg-gray-800 rounded-xl p-6 border border-violet-400 hover:border-violet-500 transition-colors cursor-pointer">
             <div className="flex items-center">
-              <User className="w-8 h-8 text-purple-400" />
+              <User className="w-8 h-8 text-violet-400" />
               <div className="ml-4">
                 <h3 className="text-lg font-semibold text-white">
                   View Profile
@@ -197,7 +197,7 @@ export default function Dashboard() {
         </Link>
 
         <Link href="/leaderboard">
-          <div className="bg-gray-800 rounded-xl p-6 border border-violet-400 hover:border-purple-500 transition-colors cursor-pointer">
+          <div className="bg-gray-800 rounded-xl p-6 border border-violet-400 hover:border-violet-500 transition-colors cursor-pointer">
             <div className="flex items-center">
               <Trophy className="w-8 h-8 text-yellow-400" />
               <div className="ml-4">

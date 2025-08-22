@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { RotateCcw, Home, Users, User, Wifi, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { useSound } from "../../hooks/useSound";
+import { uploadScoreToSupabase } from "@/lib/syncScore";
 
 type Player = "X" | "O" | null;
 type Board = Player[];
@@ -101,6 +102,7 @@ export default function TicTacToe() {
       );
       stats.gamesPlayed += 1;
       localStorage.setItem("gameStats", JSON.stringify(stats));
+      uploadScoreToSupabase();
     } else {
       setCurrentPlayer(currentPlayer === "X" ? "O" : "X");
     }

@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { Edit3, Save, X, Home } from "lucide-react";
 import Link from "next/link";
+import supabase from "@/lib/supabase";
+import { ensureUserId } from "@/lib/userId";
 
 type UserProfile = {
   username: string;
@@ -13,15 +15,18 @@ type UserProfile = {
 };
 
 export default function Profile() {
-  const [profile, setProfile] = useState<UserProfile>({
+  const defaultProfile: UserProfile = {
     username: "GamePlayer",
     email: "player@playzone.com",
     favoriteGame: "Tic Tac Toe",
-    joinDate: new Date().toLocaleDateString(),
+    joinDate: new Date().toLocaleDateString("en-GB"),
     avatar: "🎮",
-  });
+  };
+
+  const [profile, setProfile] = useState<UserProfile>(defaultProfile);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedProfile, setEditedProfile] = useState(profile);
+  const [editedProfile, setEditedProfile] =
+    useState<UserProfile>(defaultProfile);
   const [stats, setStats] = useState({
     gamesPlayed: 0,
     totalScore: 0,
@@ -42,6 +47,7 @@ export default function Profile() {
     "🔥",
     "💎",
   ];
+
   const gameOptions = [
     "Tic Tac Toe",
     "Rock Paper Scissors",
@@ -51,27 +57,65 @@ export default function Profile() {
     "Word Puzzle",
   ];
 
+  // Load profile & stats once
   useEffect(() => {
-    // Load profile from localStorage
     const savedProfile = localStorage.getItem("userProfile");
     if (savedProfile) {
       const parsedProfile = JSON.parse(savedProfile);
       setProfile(parsedProfile);
       setEditedProfile(parsedProfile);
+    } else {
+      // Save default profile if none exists
+      localStorage.setItem("userProfile", JSON.stringify(defaultProfile));
     }
 
-    // Load stats from localStorage
     const savedStats = localStorage.getItem("gameStats");
     if (savedStats) {
       setStats(JSON.parse(savedStats));
     }
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (JSON.stringify(profile) === JSON.stringify(editedProfile)) {
+      setIsEditing(false);
+      return;
+    }
+
     setProfile(editedProfile);
     localStorage.setItem("userProfile", JSON.stringify(editedProfile));
     setIsEditing(false);
+
+    const userId = ensureUserId(); // ✅ unified
+    const gameStats = JSON.parse(localStorage.getItem("gameStats") || "{}");
+
+    const { error } = await supabase.from("leaderboard").upsert(
+      {
+        id: userId,
+        username: editedProfile.username,
+        avatar: editedProfile.avatar,
+        favoriteGame: editedProfile.favoriteGame,
+        totalScore: gameStats.totalScore || 0,
+        gamesPlayed: gameStats.gamesPlayed || 0,
+        bestStreak: gameStats.bestStreak || 0,
+      },
+      { onConflict: "id" }
+    );
+
+    if (error) {
+      if (error.code === "23505") {
+        setMessage({ type: "error", text: "❌ Username already taken!" });
+      } else {
+        console.error("❌ Error updating Supabase:", error.message);
+      }
+    } else {
+      setMessage({ type: "success", text: "✅ Profile saved!" });
+    }
   };
+
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const handleCancel = () => {
     setEditedProfile(profile);
@@ -100,6 +144,16 @@ export default function Profile() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Profile Information */}
+        {message && (
+          <div
+            className={`mb-4 p-3 rounded-lg text-white text-sm ${
+              message.type === "success" ? "bg-green-600" : "bg-red-600"
+            }`}
+          >
+            {message.text}
+          </div>
+        )}
+
         <div className="lg:col-span-2">
           <div className="bg-gray-800 rounded-xl p-6 border border-violet-400">
             <div className="flex items-center justify-between mb-6">
@@ -164,6 +218,7 @@ export default function Profile() {
 
             {/* Form Fields */}
             <div className="space-y-4">
+              {/* Username */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Username
@@ -182,6 +237,7 @@ export default function Profile() {
                 )}
               </div>
 
+              {/* Email */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Email
@@ -198,6 +254,7 @@ export default function Profile() {
                 )}
               </div>
 
+              {/* Favorite Game */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Favorite Game
@@ -221,6 +278,7 @@ export default function Profile() {
                 )}
               </div>
 
+              {/* Join Date */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Member Since
@@ -262,57 +320,24 @@ export default function Profile() {
           <div className="bg-gray-800 rounded-xl p-6 border border-violet-400">
             <h3 className="text-lg font-bold text-white mb-4">Achievements</h3>
             <div className="space-y-3">
-              <div
-                className={`flex items-center p-3 rounded-lg ${
-                  stats.gamesPlayed >= 1
-                    ? "bg-green-900/30 border border-green-500/30"
-                    : "bg-violet-400/30 border border-gray-600"
-                }`}
-              >
-                <span className="text-2xl mr-3">🎮</span>
-                <div>
-                  <div className="text-sm font-medium text-white">
-                    First Game
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    Play your first game
-                  </div>
-                </div>
-              </div>
-
-              <div
-                className={`flex items-center p-3 rounded-lg ${
-                  stats.gamesPlayed >= 10
-                    ? "bg-green-900/30 border border-green-500/30"
-                    : "bg-violet-400/30 border border-gray-600"
-                }`}
-              >
-                <span className="text-2xl mr-3">🏆</span>
-                <div>
-                  <div className="text-sm font-medium text-white">
-                    Game Enthusiast
-                  </div>
-                  <div className="text-xs text-gray-400">Play 10 games</div>
-                </div>
-              </div>
-
-              <div
-                className={`flex items-center p-3 rounded-lg ${
-                  stats.bestStreak >= 5
-                    ? "bg-green-900/30 border border-green-500/30"
-                    : "bg-violet-400/30 border border-gray-600"
-                }`}
-              >
-                <span className="text-2xl mr-3">🔥</span>
-                <div>
-                  <div className="text-sm font-medium text-white">
-                    Hot Streak
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    Win 5 games in a row
-                  </div>
-                </div>
-              </div>
+              <Achievement
+                unlocked={stats.gamesPlayed >= 1}
+                icon="🎮"
+                title="First Game"
+                description="Play your first game"
+              />
+              <Achievement
+                unlocked={stats.gamesPlayed >= 10}
+                icon="🏆"
+                title="Game Enthusiast"
+                description="Play 10 games"
+              />
+              <Achievement
+                unlocked={stats.bestStreak >= 5}
+                icon="🔥"
+                title="Hot Streak"
+                description="Win 5 games in a row"
+              />
             </div>
           </div>
 
@@ -332,6 +357,34 @@ export default function Profile() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function Achievement({
+  unlocked,
+  icon,
+  title,
+  description,
+}: {
+  unlocked: boolean;
+  icon: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div
+      className={`flex items-center p-3 rounded-lg ${
+        unlocked
+          ? "bg-green-900/30 border border-green-500/30"
+          : "bg-violet-400/30 border border-gray-600"
+      }`}
+    >
+      <span className="text-2xl mr-3">{icon}</span>
+      <div>
+        <div className="text-sm font-medium text-white">{title}</div>
+        <div className="text-xs text-gray-400">{description}</div>
       </div>
     </div>
   );

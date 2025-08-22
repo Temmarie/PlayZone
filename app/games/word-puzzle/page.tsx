@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { RotateCcw, Home, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useSound } from "../../hooks/useSound";
+import { uploadScoreToSupabase } from "@/lib/syncScore";
 
 type GridCell = {
   letter: string;
@@ -88,6 +89,7 @@ export default function WordPuzzle() {
       stats.gamesPlayed += 1;
       stats.totalScore += Math.max(finalScore, 0);
       localStorage.setItem("gameStats", JSON.stringify(stats));
+      uploadScoreToSupabase();
     }
   }, [foundWords, wordsToFind, timeElapsed, highScore, playSuccess]);
 

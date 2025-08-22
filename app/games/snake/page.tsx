@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Play, Pause, RotateCcw, Home, Users, User } from "lucide-react";
 import Link from "next/link";
 import { useSound } from "../../hooks/useSound";
+import { uploadScoreToSupabase } from "@/lib/syncScore";
 
 type Position = { x: number; y: number };
 type Direction = "UP" | "DOWN" | "LEFT" | "RIGHT";
@@ -311,6 +312,7 @@ export default function Snake() {
       stats.gamesPlayed += 1;
       stats.totalScore += finalScore;
       localStorage.setItem("gameStats", JSON.stringify(stats));
+      uploadScoreToSupabase();
     }
   }, [gameOver, score, score2, highScore, gameMode]);
 

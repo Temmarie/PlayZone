@@ -4,8 +4,7 @@ import { useState, useEffect } from "react";
 import { Trophy, Medal, Award, Home, Crown } from "lucide-react";
 import Link from "next/link";
 import supabase from "@/lib/supabase";
-
-// Adjust if your Supabase client path is different
+import { ensureUserId } from "@/lib/userId";
 
 type LeaderboardEntry = {
   id: string;
@@ -26,16 +25,10 @@ export default function Leaderboard() {
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
-      const { data, error } = await supabase
-        .from("leaderboard")
-        .select("*")
-        .order(sortBy, { ascending: false });
+      // 🔑 get persistent userId
+      const userId = ensureUserId();
 
-      if (error) {
-        console.error("Error fetching leaderboard:", error.message);
-        return;
-      }
-
+      // Load local profile + stats
       const userProfile = JSON.parse(
         localStorage.getItem("userProfile") ||
           '{"username": "GamePlayer", "avatar": "🎮", "favoriteGame": "Tic Tac Toe"}'
@@ -47,7 +40,7 @@ export default function Leaderboard() {
       );
 
       const currentUserEntry: LeaderboardEntry = {
-        id: "current",
+        id: userId,
         username: userProfile.username,
         avatar: userProfile.avatar,
         totalScore: userStats.totalScore,
@@ -58,10 +51,31 @@ export default function Leaderboard() {
 
       setCurrentUser(currentUserEntry);
 
-      const combined = [...(data || []), currentUserEntry];
-      const sorted = combined.sort((a, b) => b[sortBy] - a[sortBy]);
+      // 1️⃣ Upsert by ID
+      const { error: upsertError } = await supabase
+        .from("leaderboard")
+        .upsert([currentUserEntry], { onConflict: "id" });
 
-      setLeaderboard(sorted);
+      if (upsertError) {
+        console.error("Error syncing user to Supabase:", upsertError.message);
+        if (upsertError.code === "23505") {
+          alert("That username is already taken. Please choose another.");
+          return;
+        }
+      }
+
+      // 2️⃣ Fetch leaderboard sorted by chosen stat
+      const { data, error } = await supabase
+        .from("leaderboard")
+        .select("*")
+        .order(sortBy, { ascending: false });
+
+      if (error) {
+        console.error("Error fetching leaderboard:", error.message);
+        return;
+      }
+
+      setLeaderboard(data);
     };
 
     fetchLeaderboard();
@@ -97,7 +111,14 @@ export default function Leaderboard() {
     }
   };
 
-  const isCurrentUser = (entry: LeaderboardEntry) => entry.id === "current";
+  const getUserRank = () => {
+    if (!currentUser) return null;
+    return (
+      leaderboard.findIndex(
+        (entry) => entry.username === currentUser.username
+      ) + 1
+    );
+  };
 
   return (
     <div className="p-6 lg:p-8 max-w-6xl mx-auto">
@@ -150,11 +171,11 @@ export default function Leaderboard() {
         <div className="divide-y divide-violet-400">
           {leaderboard.map((entry, index) => {
             const rank = index + 1;
-            const isUser = isCurrentUser(entry);
+            const isUser = currentUser?.username === entry.username;
 
             return (
               <div
-                key={entry.id + index}
+                key={entry.username + index}
                 className={`p-6 flex items-center justify-between transition-colors ${
                   isUser
                     ? "bg-purple-900/30 border-l-4 border-l-purple-500"
@@ -220,7 +241,7 @@ export default function Leaderboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-400">
-                #{leaderboard.findIndex((entry) => entry.id === "current") + 1}
+                #{getUserRank()}
               </div>
               <div className="text-sm text-gray-400">Current Rank</div>
             </div>
